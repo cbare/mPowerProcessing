@@ -104,6 +104,14 @@ getMaxRowVersion<-function(df) {
   max(synapseClient:::parseRowAndVersion(row.names(df))[2,])
 }
 
+# e = enrollment survey
+# u = UPDRS
+# p = PDQ8
+# m = memory activity
+# t = tapping
+# v = voice
+# w = walking
+
 process_mpower_data<-function(eId, uId, pId, mId, tId, vId1, vId2, wId, outputProjectId, 
 		bridgeStatusId, mPowerBatchStatusId, lastProcessedVersionTableId) {
 	# check if Bridge is done.  If not, exit
@@ -200,31 +208,57 @@ process_mpower_data_bare<-function(eId, uId, pId, mId, tId, vId1, vId2, wId, out
 	cat("Storing cleaned data...\n")
 	store_cleaned_data(outputProjectId, eDat, uDat, pDat, mDat, tDat, vDat, wDat, mFilehandleCols, tFilehandleCols, vFilehandleCols)
 	cat("... done.\n")
-	
-	# **** other steps go here ****
-	
-	# Now call the Visualization Data API 
-	#https://sagebionetworks.jira.com/wiki/display/BRIDGE/mPower+Visualization#mPowerVisualization-WritemPowerVisualizationData
-	cat("Invoking visualization API...\n")
-	# place holder
-	content<-list(
-		"healthCode"="test-d9c31718-481f-4d75-b7d8-49154653504a",
-		"date"="2016-03-04",
-		"visualization"=list(
-			"standingPreMedication"=0.8,
-			"standingPostMedication"=0.9,
-			"tappingPreMedication"=0.4,
-			"tappingPostMedication"=0.6,
-			"voicePreMedication"=0.7,
-			"voicePostMedication"=0.8,
-			"walkingPreMedication"=0.5,
-			"walkingPostMedication"=0.8
-		)
-	)			
-	url <- bridger:::uriToUrl("/parkinson/visualization", bridger:::.getBridgeCache("bridgeEndpoint"))
-	response<-getURL(url, postfields=toJSON(content), customrequest="POST", 
-			.opts=bridger:::.getBridgeCache("opts"), httpheader=bridger:::.getBridgeCache("httpheader"))
-	# response is "Visualization created."
+
+	##--------------------------------------------------
+	## Feature Extraction
+	##--------------------------------------------------
+	# synapseIds <- where to fetch features and upload appended file
+	balance_extract_features(wDat)
+	gait_extract_features(wDat)
+	# tapping - tDat
+	# voice - vDat
+
+	##--------------------------------------------------
+	## Personalized feature selection
+	##--------------------------------------------------
+	# TODO: later
+
+	##--------------------------------------------------
+	## Normalization
+	##--------------------------------------------------
+	cat("Normalizing feature data...\n")
+	tables   <- list(demographics='syn5511429',
+					 tapping='syn5511439',
+					 voice='syn5511444',
+					 walking='syn5511449')
+	features <- list(balance='syn5678820',
+					 gait='syn5679280',
+					 tapping='syn5612449',
+					 voice='syn5653006')
+	window <- list(start=Sys.Date()-30, end=Sys.Date())
+	normalizedFeatures <- runNormalization(tables, features, window)
+	cat("... done.\n")
+
+	##--------------------------------------------------
+	## export to Bridge mPower Visualization API
+	##--------------------------------------------------
+	cat("Exporting to Bridge mPower Visualization API...\n")
+	for (healthCode in names(normalizedFeatures)) {
+		normdata <- normalizedFeatures[[healthCode]]
+		if (inherits(normdata, "try-error")) {
+			message(sprintf('skipping %s due to error in processing', healthCode))
+		}
+		else {
+			jsonString <- visDataToJSON(healthCode, normalizedFeatures[[healthCode]])
+
+			## call Bridge Visualization API
+			## see: https://sagebionetworks.jira.com/wiki/display/BRIDGE/mPower+Visualization#mPowerVisualization-WritemPowerVisualizationData
+			url <- bridger:::uriToUrl("/parkinson/visualization", bridger:::.getBridgeCache("bridgeEndpoint"))
+			response <- getURL(url, postfields=jsonString, customrequest="POST",
+					.opts=bridger:::.getBridgeCache("opts"), httpheader=bridger:::.getBridgeCache("httpheader"))
+			# response is "Visualization created."
+		}
+	}
 	cat("... done.\n")
 
 	cat("Wrapping up...\n")

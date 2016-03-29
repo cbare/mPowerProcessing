@@ -8,12 +8,14 @@
 ## Sage Bionetworks (http://sagebase.org)
 #####################################################################
 
-balance_extract_features<-function() {
+
+balance_extract_features_main <- function() {
+
   args <- commandArgs(trailingOnly=TRUE)
   source_table <- args[1]
   limit <- as.integer(args[2])
   offset   <- as.integer(args[3])
-  
+
   ## An RData file holding completed rows
   if (length(args)>3) {
     e <- new.env()
@@ -21,38 +23,58 @@ balance_extract_features<-function() {
     name <- ls(e)[1]
     completed_recordIds <- rownames(get(name, envir=e))
   } else {
-    completed_recordIds <- c()
+    completed_recordIds <- list()
   }
-  
-  require(synapseClient)
-  synapseLogin()
-  
+
   ## syn5511449 = walking activity from public researcher portal
   ## syn4590866 = walking from mpower level 1
   walk <- synTableQuery(sprintf("SELECT * FROM %s LIMIT %s OFFSET %s", source_table, limit, offset))
   cat("dim(walk@values)=", dim(walk@values), "\n")
-  
+
   walkToDownload <- walk
   toDownload <- !(walkToDownload@values$recordId %in% completed_records$recordId)
   walkToDownload@values <- walkToDownload@values[ toDownload ,]
-  
+
   fileMap <- synDownloadTableColumns(walkToDownload, "deviceMotion_walking_rest.json.items")
-  
-  ldat <- fromJSON(fileMap[1])
+  outFilename <- sprintf("balance_features_%d_%d.RData", limit, offset)
+
+  balance_extract_features(walk, fileMap, outFilename, completed_records)
+}
+
+
+#' Extract balance features
+#'
+#' @param walk a data.frame with walking activity metadata
+#' @param fileMap mapping from file handle IDs to paths on the local file system
+#' @param outFilename name of .RData file to write resulting feature data.frame
+#' @param completed_records a data.frame of existing features in the same format as
+#'                          this functions return value
+#'
+#' @return a data.frame holding feature data
+#'
+balance_extract_features <- function(walk, fileMap, outFilename, completed_records) {
+
+  if (missing(fileMap)) {
+    fileMap <- synDownloadTableColumns(walk, "deviceMotion_walking_rest.json.items")
+  }
+  if (missing(completed_records)) {
+    completed_records <- list()
+  }
+
+  ldat <- rjson::fromJSON(file=fileMap[1])
   bdat <- ShapeBalanceData(ldat)
   feat1 <- GetBalanceFeatures(bdat)
-  
+
   feat <- matrix(NA, nrow(walk@values), length(feat1))
   rownames(feat) <- walk@values$recordId
   colnames(feat) <- names(feat1)
   feat[1,] <- feat1
-  
+
   n <- nrow(walk@values)
   cat(sprintf("Processing %d rows...\n", n))
-  
-  ## replace ntest by n to get all data
+
   for (i in 1:nrow(walk@values)) {
-    cat(i, "\n")
+    message(i, "\n")
     recordId <- walk@values[i,'recordId']
     if (recordId %in% rownames(completed_records)) {
       feat[i,] <- completed_records[recordId,]
@@ -60,13 +82,16 @@ balance_extract_features<-function() {
       try({
         fileHandleId <- walk@values[i,'deviceMotion_walking_outbound.json.items']
         filepath <- fileMap[fileHandleId]
-        ldat <- fromJSON(filepath)
+        ldat <- rjson::fromJSON(file=filepath)
         bdat <- ShapeBalanceData(ldat)
         feat[i,] <- GetBalanceFeatures(bdat)
       })
     }
   }
-  
-  save(feat, file=sprintf("balance_features_%d_%d.RData", limit, offset), compress=TRUE)
-  
+
+  if (!missing(outFilename)) {
+    save(feat, file=outFilename, compress=TRUE)
+  }
+
+  invisible(feat)
 }
