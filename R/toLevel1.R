@@ -533,3 +533,27 @@ formatDF<-function(dataframe, schema) {
 	dataframe
 }
 
+
+#' Given a Synapse Project ID, return a list of descriptors, each of
+#' which is a list with name, df, and synId.
+find_cleaned_tables <- function(outputProjectId, eDat, uDat, pDat, mDat, tDat, vDat, wDat) {
+  cleaned_tables <- list(
+    demographics=list(name='Demographics Survey', df=eDat),
+    updrs=list(name='UPDRS Survey', df=uDat),
+    pdq8=list(name='PDQ8 Survey', df=pDat),
+    memory=list(name='Memory Activity', df=mDat),
+    tapping=list(name='Tapping Activity', df=tDat),
+    voice=list(name='Voice Activity', df=vDat),
+    walking=list(name='Walking Activity', df=wDat))
+
+  qq <- synQuery(paste0('SELECT id, name FROM table WHERE parentId=="', outputProjectId, '"'))
+
+  ## for each entry in cleaned_tables, append a Synapse ID and a Table object
+  lapply(cleaned_tables, function(mtbl) {
+    synId<-qq$table.id[qq$table.name == mtbl$name]
+    append(mtbl, list(
+      synId=synId,
+      table=synapseClient::Table(synId, mtbl$df)))
+  })
+}
+

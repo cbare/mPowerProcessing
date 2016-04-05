@@ -44,7 +44,7 @@ balance_extract_features_main <- function() {
 
 #' Extract balance features
 #'
-#' @param walk a data.frame with walking activity metadata
+#' @param walk a synapseClient::Table object with walking activity metadata
 #' @param fileMap mapping from file handle IDs to paths on the local file system
 #' @param outFilename name of .RData file to write resulting feature data.frame
 #' @param completed_records a data.frame of existing features in the same format as
@@ -53,6 +53,8 @@ balance_extract_features_main <- function() {
 #' @return a data.frame holding feature data
 #'
 balance_extract_features <- function(walk, fileMap, outFilename, completed_records) {
+
+  message('extracting balance features')
 
   if (missing(fileMap)) {
     fileMap <- synDownloadTableColumns(walk, "deviceMotion_walking_rest.json.items")

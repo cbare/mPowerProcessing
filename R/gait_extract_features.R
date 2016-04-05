@@ -40,7 +40,7 @@ gait_extract_features_main <- function() {
 
 #' Extract gait features
 #'
-#' @param walk a data.frame with walking activity metadata
+#' @param walk a synapseClient::Table object with walking activity metadata
 #' @param fileMap mapping from file handle IDs to paths on the local file system
 #' @param outFilename name of .RData file to write resulting feature data.frame
 #' @param completed_records a data.frame of existing features in the same format as

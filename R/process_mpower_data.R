@@ -204,17 +204,24 @@ process_mpower_data_bare<-function(eId, uId, pId, mId, tId, vId1, vId2, wId, out
 	vDat<-clean_up_result$vDat
 	wDat<-clean_up_result$wDat
 	cat("... done.\n")
-	
+
 	cat("Storing cleaned data...\n")
 	store_cleaned_data(outputProjectId, eDat, uDat, pDat, mDat, tDat, vDat, wDat, mFilehandleCols, tFilehandleCols, vFilehandleCols)
 	cat("... done.\n")
 
+	## this duplicates work done in store_cleaned_data and could be conslidated
+	cleaned_tables <- find_cleaned_tables(outputProjectId, eDat, uDat, pDat, mDat, tDat, vDat, wDat)
+
 	##--------------------------------------------------
 	## Feature Extraction
+	##   * Extract features from raw activity data.
+	##   * Store a new copy of Synapse files to which
+	##     new feature data has been appended.
 	##--------------------------------------------------
-	# synapseIds <- where to fetch features and upload appended file
-	balance_extract_features(wDat)
-	gait_extract_features(wDat)
+	feat <- balance_extract_features(cleaned_tables$walking$table)
+	## TODO append (or merge?) feat with existing features
+	feat <- gait_extract_features(cleaned_tables$walking$table)
+	## TODO append (or merge?) feat with existing features
 	# tapping - tDat
 	# voice - vDat
 
@@ -225,12 +232,15 @@ process_mpower_data_bare<-function(eId, uId, pId, mId, tId, vId1, vId2, wId, out
 
 	##--------------------------------------------------
 	## Normalization
+	##   * Note that we normalize features from activity
+	##     within the last month (30 days).
+	##   * Age matched control is computed from the
+	##     whole dataset.
 	##--------------------------------------------------
 	cat("Normalizing feature data...\n")
-	tables   <- list(demographics='syn5511429',
-					 tapping='syn5511439',
-					 voice='syn5511444',
-					 walking='syn5511449')
+	## synapse tables containing feature metadata for each activity
+	tables   <- lapply(cleaned_tables, function(x) x$synId)
+	## synapse files containing feature data for each activity
 	features <- list(balance='syn5678820',
 					 gait='syn5679280',
 					 tapping='syn5612449',
