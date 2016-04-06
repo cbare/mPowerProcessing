@@ -1,20 +1,11 @@
 #!/bin/bash
 #=============================================================================
-# This script provides directions for installing mhealthx and dependencies
-# (http://sage-bionetworks.github.io/mhealthx/).
-# Running it requires a good Internet connection.
-# Tested on an Ubuntu 14.04 machine.
+# This script provides directions for installing Anaconda Python,
+# ffmpeg and openSMILE on Ubuntu 14.04.
 #
 # Usage:
-#     bash setup.sh 1
-#
-#     bash setup.sh <install_mhealthx> <install_dir>
-#       <install_mhealthx>: 1 or 0 (do/not install mhealthx)
+#     bash machine-setup.sh <install_dir>
 #       <install_dir>: path to installation directory (optional)
-#
-# Note:
-#     Third-party software not in the GitHub repository are on Synapse:
-#     https://www.synapse.org/#!Synapse:syn5584792
 #
 # Authors:
 #     - Arno Klein, 2015-2016  (arno@sagebase.org)  http://binarybottle.com
@@ -26,14 +17,7 @@
 # Assign download and installation path.
 # Create installation folder if it doesn't exist:
 #-----------------------------------------------------------------------------
-MHEALTHX=$1
-INSTALLS=$2
-if [ -z $MHEALTHX ]; then
-    MHEALTHX=1
-fi
-if [ -z $INSTALLS ]; then
-    INSTALLS=$HOME/install
-fi
+INSTALLS=$HOME/install
 if [ ! -d $INSTALLS ]; then
     mkdir -p $INSTALLS;
 fi
@@ -55,7 +39,7 @@ CONDA_FILE="Miniconda-latest-Linux-x86_64.sh"
 CONDA_DL=$INSTALLS/${CONDA_FILE}
 CONDA_PATH=$INSTALLS/miniconda2
 CONDA=${CONDA_PATH}/bin
-wget -O $CONDA_DL ${CONDA_URL}/$CONDA_FILE
+wget --no-clobber -O $CONDA_DL ${CONDA_URL}/$CONDA_FILE
 chmod +x $CONDA_DL
 # -b           run install in batch mode (without manual intervention),
 #              it is expected the license terms are agreed upon
@@ -72,31 +56,10 @@ $CONDA/conda install --yes cmake pip
 #-----------------------------------------------------------------------------
 # Install some Python libraries:
 #-----------------------------------------------------------------------------
-$CONDA/conda install --yes numpy scipy pandas nose networkx traits ipython matplotlib
-
-# Install nipype pipeline framework:
-$CONDA/pip install nipype
+$CONDA/conda install --yes numpy scipy pandas
 
 # Install Synapse client:
 $CONDA/pip install synapseclient
-
-# https://pythonhosted.org/lockfile/lockfile.html
-$CONDA/pip install lockfile
-
-# Install scikit-learn for text-to-audio conversion:
-$CONDA/pip install scikit-learn
-
-#-----------------------------------------------------------------------------
-# Install mhealthx nipype workflow for feature extraction:
-#-----------------------------------------------------------------------------
-if [ "$MHEALTHX" -eq "1" ]; then
-    cd $INSTALLS
-    git clone git@github.com:sage-bionetworks/mhealthx.git
-    cd $INSTALLS/mhealthx
-    sudo python setup.py install
-    export PATH=$INSTALLS/mhealthx/mhealthx:$PATH
-    export PYTHONPATH=$PYTHONPATH:$INSTALLS/mhealthx
-fi
 
 #-----------------------------------------------------------------------------
 # Install ffmpeg and dependencies for audio file conversion:
@@ -143,62 +106,3 @@ wget -nc http://www.audeering.com/research-and-open-source/files/openSMILE-2.2rc
 tar xvf openSMILE-2.2rc1.tar.gz
 cd openSMILE-2.2rc1
 bash buildStandalone.sh -p $INSTALLS
-
-#-----------------------------------------------------------------------------
-# Other voice feature extraction software (for future integration):
-#-----------------------------------------------------------------------------
-# Install Essentia dependencies:
-#sudo apt-get install libyaml-dev libfftw3-dev libavcodec-dev libavformat-dev libavutil-dev libavresample-dev python-dev libsamplerate0-dev libtag1-dev
-#    build-essential
-#sudo apt-get install pkg-config
-#$CONDA/pip install pyyaml
-
-# Install Essentia:
-#cd $INSTALLS
-##git clone https://github.com/MTG/essentia.git
-##cd essentia
-#wget -nc https://github.com/MTG/essentia/archive/v2.1_beta2.tar.gz
-#tar xvf essentia-v2.1_beta2.tar.gz
-#cd essentia-v2.1_beta2
-#./waf configure --mode=release --with-python --with-cpptests --with-examples
-#./waf
-##sudo mkdir /usr/local/include/essentia
-##sudo mkdir /usr/local/include/essentia/scheduler
-##chmod 777 src
-##chmod 777 src/version.h
-##chmod 777 src/algorithms
-##chmod 777 src/algorithms/essentia_algorithms_reg.cpp
-##./waf build
-#sudo ./waf install
-
-# Install Kaldi dependencies:
-#sudo apt-get install libtool subversion
-#sudo apt-get install libatlas-dev libatlas-base-dev
-
-# Install Kaldi:
-#cd $INSTALLS
-#git clone https://github.com/kaldi-asr/kaldi.git kaldi-trunk --origin golden
-#cd $INSTALLS/kaldi-trunk/tools
-#make
-#cd $INSTALLS/kaldi-trunk/src
-#./configure; make depend; make
-
-# Install YAAFE dependencies:
-#sudo apt-get install cmake-curses-gui libargtable2-0 libargtable2-dev libsndfile1 libsndfile1-dev libmpg123-0 libmpg123-dev libfftw3-3 libfftw3-dev liblapack-dev libhdf5-serial-dev libhdf5-7
-##   cmake
-# Install YAAFE:
-#mkdir build; cd build
-#ccmake -DCMAKE_PREFIX_PATH=$INSTALLS/yaafe-v0.64/build/lib -DCMAKE_INSTALLS=$INSTALLS/yaafe-v0.64/ ..
-#make; make install
-
-# Install jAudio dependencies:
-#sudo apt-get install ant
-#sudo apt-get install openjdk-7-jdk
-# Install jAudio:
-#git clone https://github.com/anjackson/jAudio.git
-#cd $INSTALLS/jAudio
-#ant jar
-#...
-
-# Install grt:
-#sudo apt-get install g++-4.8
